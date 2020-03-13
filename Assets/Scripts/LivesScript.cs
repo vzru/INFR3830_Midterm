@@ -19,7 +19,7 @@ public class LivesScript : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        livesText.text = lives.ToString();
+        livesText.text = lives + "\nLives Remaining";
 
         if (lives <= 0)
         {

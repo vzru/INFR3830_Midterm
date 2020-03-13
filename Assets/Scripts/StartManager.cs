@@ -35,9 +35,6 @@ public class StartManager : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            UnityEngine.SceneManagement.SceneManager.LoadScene("tutorial4");
-        }
+        
     }
 }
