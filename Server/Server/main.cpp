@@ -2,5 +2,5 @@
 
 int main() {
 	Server server = Server();
-	server.startUpdates();
+	server.startListening();
 }

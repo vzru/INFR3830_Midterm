@@ -16,7 +16,7 @@ Server::Server()
 	//socket setup
 	serverTCP.sin_addr.S_un.S_addr = ADDR_ANY;
 	serverTCP.sin_family = AF_INET;
-	serverTCP.sin_port = htons(55555);
+	serverTCP.sin_port = htons(DEFAULT_PORT);
 	TCP = socket(serverTCP.sin_family, SOCK_STREAM, IPPROTO_TCP);
 	if (TCP == INVALID_SOCKET)
 	{
@@ -36,7 +36,7 @@ Server::Server()
 	//socket setup
 	serverUDP.sin_addr.S_un.S_addr = ADDR_ANY;
 	serverUDP.sin_family = AF_INET;
-	serverUDP.sin_port = htons(60000);
+	serverUDP.sin_port = htons(8889);
 	UDP = socket(serverUDP.sin_family, SOCK_DGRAM, IPPROTO_UDP);
 	if (UDP == INVALID_SOCKET)
 	{
@@ -58,10 +58,17 @@ Server::Server()
 	FD_ZERO(&master);
 	FD_SET(TCP, &master);
 	FD_SET(UDP, &master);
+
+	init = true;
 }
 
 Server::~Server()
 {
+	listening = false;
+	FD_CLR(TCP, &master);
+	closesocket(TCP);
+	closesocket(UDP);
+	WSACleanup();
 }
 
 
@@ -77,9 +84,23 @@ void Server::acceptTCPConnection()
 	FD_SET(client, &master);
 }
 
+void Server::startListening()
+{
+	if (init)
+	{
+		listening = true;
+		std::thread t(&startUpdates, this);
+		t.detach();
+	}
+}
+
 void Server::startUpdates()
 {
 	while (listening) {
+		if (!listening) {
+			return;
+		}
+
 		fd_set copy = master;
 
 		timeval nope;
@@ -90,8 +111,6 @@ void Server::startUpdates()
 		//handle all active sockets
 		for (int i = 0; i < socketCount; i++)
 		{
-			// std::cout << "Packet Recieved:";
-
 			SOCKET sock = copy.fd_array[i];
 
 			//Socket Listener
@@ -114,7 +133,7 @@ void Server::startUpdates()
 			}
 			else if (sock == TCP)
 			{
-					acceptTCPConnection();
+				acceptTCPConnection();
 			}
 			//TCP Input Sockets
 			else {
@@ -122,16 +141,9 @@ void Server::startUpdates()
 
 				int byteReceived = recv(sock, buf, DEFAULT_PACKET_SIZE, 0);
 				//handles disconnection packets
-				if (byteReceived <= 0)
-				{
-					std::cout << "Disconnection" << std::endl;
-
-					// Drop the client
-					closesocket(sock);
-					FD_CLR(sock, &master);
-				}
-				else if (byteReceived == SOCKET_ERROR) {
+				if (byteReceived == SOCKET_ERROR) {
 					std::cout << "Recieve Error: " << WSAGetLastError() << std::endl;
+
 				}
 				else {
 					//process packet data
@@ -145,5 +157,104 @@ void Server::startUpdates()
 				delete[] buf;
 			}
 		}
+	}
+}
+
+
+void Server::packetTCP(char* packet)
+{
+	int length;
+	memcpy(&length, packet + PACKET_LENGTH, sizeof(length));
+
+	std::cout << "LENGTH: " << length << std::endl;
+
+	if (length >= INITIAL_OFFSET && length < 50)
+	{
+		int packetType;
+		memcpy(&packetType, packet + PACKET_TYPE, sizeof(packetType));
+		int sender;
+		memcpy(&sender, packet + PACKET_SENDER, sizeof(sender));
+		if (sender >= 0 && sender < ConnectedUsers.size())
+		{
+			switch (packetType)
+			{
+			default:
+				break;
+			}
+		}
+
+		for (int i = 0; i < clientCount; ++i)
+		{
+			if (ConnectedUsers[i].active)
+			{
+				int sendOK = send(ConnectedUsers[i].tcpSocket, packet, DEFAULT_PACKET_SIZE, 0);
+				if (sendOK == SOCKET_ERROR) {
+					std::cout << "Send Error: " << WSAGetLastError() << std::endl;
+				}
+			}
+		}
+	}
+}
+
+
+void Server::packetUDP(char* packet, sockaddr_in fromAddr, int fromLen)
+{
+	int length;
+	memcpy(&length, packet + PACKET_LENGTH, sizeof(length));
+
+	if (length >= INITIAL_OFFSET && length < 50)
+	{
+		int packetType;
+		memcpy(&packetType, packet + PACKET_TYPE, sizeof(packetType));
+		int index;
+		memcpy(&index, packet + PACKET_SENDER, sizeof(index));
+		if (index >= 0 && index < ConnectedUsers.size())
+		{
+			if (!ConnectedUsers[index].activeUDP)
+			{
+				acceptNewClient(index, fromAddr, fromLen);
+			}
+		}
+
+		switch (packetType)
+		{
+		case PacketType::ENTITY:
+			break;
+		default:
+			break;
+		}
+		for (int i = 0; i < clientCount; ++i)
+		{
+			if (ConnectedUsers[i].active)
+			{
+				int length;
+				memcpy(&length, packet, 4);
+				int sendOK = sendto(UDP, packet, DEFAULT_PACKET_SIZE, 0, (sockaddr*)&ConnectedUsers[i].udpAddress, ConnectedUsers[i].udpLength);
+				if (sendOK == SOCKET_ERROR) {
+					std::cout << "Send Error: " << WSAGetLastError() << std::endl;
+				}
+			}
+		}
+	}
+}
+
+void Server::acceptNewClient(int sender, sockaddr_in address, int length)
+{
+	//processing must be done here
+	if (sender < ConnectedUsers.size()) {
+		if (address.sin_addr.S_un.S_addr != ConnectedUsers[sender].udpAddress.sin_addr.S_un.S_addr)
+		{
+			ConnectedUsers[sender].udpAddress = address;
+			ConnectedUsers[sender].udpLength = length;
+
+			if (!ConnectedUsers[sender].activeUDP)
+			{
+				std::cout << "UDP Client " << ConnectedUsers[sender].index << " has connected." << std::endl;
+				ConnectedUsers[sender].activeUDP = true;
+			}
+		}
+	}
+	else {
+		std::cout << "Connection Error";
 	}
 }

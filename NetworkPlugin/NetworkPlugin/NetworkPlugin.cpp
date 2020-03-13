@@ -72,7 +72,7 @@ bool NetworkPlugin::connectServer(std::string ip)
 	std::cout << "TCP Connected!" << std::endl;
 
 	std::cout << "ConnectingUDP..." << std::endl;
-	if (getaddrinfo(DefaultServerIP.c_str(), "60000", &hintsUDP, &ptrUDP) != 0)
+	if (getaddrinfo(DefaultServerIP.c_str(), "8889", &hintsUDP, &ptrUDP) != 0)
 	{
 		WSACleanup();
 		return false;
