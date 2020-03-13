@@ -8,6 +8,6 @@ public class SceneSwitcher : MonoBehaviour
 {
     public void SwitchScene()
     {
-        UnityEngine.SceneManagement.SceneManager.LoadScene("tutorial4");
+        UnityEngine.SceneManagement.SceneManager.LoadScene("Game");
     }
 }

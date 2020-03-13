@@ -25,6 +25,11 @@ NetworkPlugin::NetworkPlugin()
 
 NetworkPlugin::~NetworkPlugin()
 {
+	listening = false;
+	closesocket(TCP);
+	closesocket(UDP);
+	WSACleanup();
+	showConsole(false);
 }
 
 bool NetworkPlugin::connectServer(std::string ip)

@@ -65,7 +65,12 @@ public class NetworkManager : MonoBehaviour
         Client = CreateClient();
         SetupPacketReception(receivePacket);
         Update(Client);
-        ShowConsole(Client, true);
+        ShowConsole(Client, false);
+    }
+
+    private void OnDestroy()
+    {
+        DeleteClient(Client);
     }
 
     ///////////////////////////////////////////////////////////////////////////////
