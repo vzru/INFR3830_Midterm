@@ -58,11 +58,16 @@ public:
 
 	void acceptNewClient(int sender, sockaddr_in address, int length);
 
+	void PackAuxilaryData(char* buffer, int length, int sender, int type);
+
 private:
 	fd_set master;
 	bool init = false;
 	bool listening;
 	int clientCount;
-
 	std::vector<UserProfile> ConnectedUsers;
+
+
+	template<class T>
+	void PackData(char* buffer, int* loc, T data);
 };

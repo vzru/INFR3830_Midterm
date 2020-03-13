@@ -138,6 +138,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="packet.h" />
     <ClInclude Include="Server.h" />
   </ItemGroup>
   <ItemGroup>

@@ -2,7 +2,6 @@
 
 #include <iostream>
 #include <thread>
-
 #include <WinSock2.h>
 #include <ws2tcpip.h>
 #include <stdio.h>
@@ -10,8 +9,6 @@
 
 #ifdef PLUGIN_EXPORTS
 #define PLUGIN_H __declspec(dllexport)
-#elif PLUGIN_IMPORTS
-#define PLUGIN_H __declspec(dllimport)
 #else
 #define PLUGIN_H
 #endif
@@ -41,7 +38,7 @@ private:
 	bool init = false;
 	bool socketInit = false;
 	bool consoleOpen = false;
-	bool listening;
+	bool listening = true;
 };
 
 

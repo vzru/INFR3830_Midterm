@@ -60,6 +60,7 @@ Server::Server()
 	FD_SET(UDP, &master);
 
 	init = true;
+	listening = true;
 }
 
 Server::~Server()
@@ -81,21 +82,51 @@ void Server::acceptTCPConnection()
 
 	// Accept a new connection
 	SOCKET client = accept(TCP, (struct sockaddr*) & tmpAddress, &tmpLen);
-	FD_SET(client, &master);
-}
 
-void Server::startListening()
-{
-	if (init)
+	//create new profile
+	UserProfile newProfile = UserProfile();
+	newProfile.tcpSocket = client;
+	newProfile.tcpAddress = tmpAddress;
+	newProfile.tcpLength = tmpLen;
+
+	if (clientCount < 9) {
+		newProfile.index = clientCount;
+		clientCount++;
+	}
+	FD_SET(client, &master);
+	ConnectedUsers.push_back(newProfile);
+
+	char packetData[DEFAULT_PACKET_SIZE];
+	int loc = INITIAL_OFFSET;
+	PackData<int>(packetData, &loc, newProfile.index);
+	PackAuxilaryData(packetData, loc, -1, (int)PacketType::INIT);
+
+	std::cout << "Sent Init Packet" << std::endl;
+
+	int sendOK = send(newProfile.tcpSocket, packetData, DEFAULT_PACKET_SIZE, 0);
+	if (sendOK == SOCKET_ERROR) {
+		std::cout << "Init Send Error: " << WSAGetLastError() << std::endl;
+	}
+	else
 	{
-		listening = true;
-		std::thread t(&startUpdates, this);
-		t.detach();
+		ConnectedUsers[newProfile.index].active = true;
+		std::cout << "TCP Client " << newProfile.index << " has connected." << std::endl;
 	}
 }
 
+//void Server::startListening()
+//{
+//	if (init)
+//	{
+//		std::thread t(&Server::startUpdates, this);
+//		t.detach();
+//	}
+//}
+
 void Server::startUpdates()
 {
+	std::cout << "Server Running..." << std::endl;
+
 	while (listening) {
 		if (!listening) {
 			return;
@@ -126,7 +157,7 @@ void Server::startUpdates()
 					std::cout << "UDP Recieve Error: " << WSAGetLastError() << std::endl;
 				}
 				else {
-					//packetUDP(buf, fromAddr, fromLen);
+					packetUDP(buf, fromAddr, fromLen);
 				}
 
 				delete[] buf;
@@ -151,7 +182,7 @@ void Server::startUpdates()
 					memcpy(&length, buf, sizeof(length));
 
 					std::cout << "LENGTH: " << length << std::endl;
-					//packetTCP(buf);
+					packetTCP(buf);
 				}
 
 				delete[] buf;
@@ -185,11 +216,14 @@ void Server::packetTCP(char* packet)
 
 		for (int i = 0; i < clientCount; ++i)
 		{
-			if (ConnectedUsers[i].active)
+			if (sender != i)
 			{
-				int sendOK = send(ConnectedUsers[i].tcpSocket, packet, DEFAULT_PACKET_SIZE, 0);
-				if (sendOK == SOCKET_ERROR) {
-					std::cout << "Send Error: " << WSAGetLastError() << std::endl;
+				if (ConnectedUsers[i].active)
+				{
+					int sendOK = send(ConnectedUsers[i].tcpSocket, packet, DEFAULT_PACKET_SIZE, 0);
+					if (sendOK == SOCKET_ERROR) {
+						std::cout << "Send Error: " << WSAGetLastError() << std::endl;
+					}
 				}
 			}
 		}
@@ -206,32 +240,26 @@ void Server::packetUDP(char* packet, sockaddr_in fromAddr, int fromLen)
 	{
 		int packetType;
 		memcpy(&packetType, packet + PACKET_TYPE, sizeof(packetType));
-		int index;
-		memcpy(&index, packet + PACKET_SENDER, sizeof(index));
-		if (index >= 0 && index < ConnectedUsers.size())
+		int sender;
+		memcpy(&sender, packet + PACKET_SENDER, sizeof(sender));
+		if (sender >= 0 && sender < ConnectedUsers.size())
 		{
-			if (!ConnectedUsers[index].activeUDP)
+			if (!ConnectedUsers[sender].activeUDP)
 			{
-				acceptNewClient(index, fromAddr, fromLen);
+				acceptNewClient(sender, fromAddr, fromLen);
 			}
 		}
 
-		switch (packetType)
-		{
-		case PacketType::ENTITY:
-			break;
-		default:
-			break;
-		}
 		for (int i = 0; i < clientCount; ++i)
 		{
-			if (ConnectedUsers[i].active)
+			if (sender != i)
 			{
-				int length;
-				memcpy(&length, packet, 4);
-				int sendOK = sendto(UDP, packet, DEFAULT_PACKET_SIZE, 0, (sockaddr*)&ConnectedUsers[i].udpAddress, ConnectedUsers[i].udpLength);
-				if (sendOK == SOCKET_ERROR) {
-					std::cout << "Send Error: " << WSAGetLastError() << std::endl;
+				if (ConnectedUsers[i].active)
+				{
+					int sendOK = sendto(UDP, packet, DEFAULT_PACKET_SIZE, 0, (sockaddr*)&ConnectedUsers[i].udpAddress, ConnectedUsers[i].udpLength);
+					if (sendOK == SOCKET_ERROR) {
+						std::cout << "Send Error: " << WSAGetLastError() << std::endl;
+					}
 				}
 			}
 		}
@@ -257,4 +285,19 @@ void Server::acceptNewClient(int sender, sockaddr_in address, int length)
 	else {
 		std::cout << "Connection Error";
 	}
+}
+
+void Server::PackAuxilaryData(char* buffer, int length, int sender, int type)
+{
+	int loc = 0;
+	PackData<int>(buffer, &loc, length);
+	PackData<int>(buffer, &loc, sender);
+	PackData<int>(buffer, &loc, type);
+}
+
+template<class T>
+void Server::PackData(char* buffer, int* loc, T data)
+{
+	memcpy(buffer + *loc, &data, sizeof(T));
+	*loc += sizeof(T);
 }
