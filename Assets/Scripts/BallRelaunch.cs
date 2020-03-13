@@ -4,11 +4,15 @@ using UnityEngine;
 
 public class BallRelaunch : MonoBehaviour {
 
+    private int lives = 3;
+
     private void OnTriggerEnter(Collider other)
     {
         other.transform.position = new Vector3(0, -7, -1);
         BallMovement.xspeed = 8.0f;
         BallMovement.yspeed = -8.0f;
         BallMovement.launchTimer = 1.0f;
+
+        LivesScript.lives--;        
     }
 }

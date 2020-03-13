@@ -11,6 +11,8 @@ public class BrickScript : MonoBehaviour {
             BallMovement.yspeed = -BallMovement.yspeed;
             BallMovement.collflag = false;
             Destroy(gameObject);
+
+            ScoreScript.score += 100;
         }
     }
 }
